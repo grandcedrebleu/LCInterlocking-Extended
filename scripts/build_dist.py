@@ -203,7 +203,7 @@ def update_package(path, version):
     child("name").text = "LCInterlocking Extended"
     child("description").text = (
         "LCInterlocking with configurable through-cut margin "
-        "to prevent residual slot skin"
+        "and isolated Python namespace for safe coexistence"
     )
     child("version").text = version
 
@@ -225,27 +225,17 @@ def update_package(path, version):
         elif url_type in ("readme", "documentation"):
             url.text = repository_url
 
-    # Minimum FreeCAD version actually validated for Extended 1.0.0.
     freecadmin = child("freecadmin")
     if freecadmin is None:
         freecadmin = ET.SubElement(root, f"{{{ns['p']}}}freecadmin")
     freecadmin.text = "1.1.1"
 
-    # Extended and upstream LCInterlocking expose the same Python module names
-    # (lasercut, panel, ...). They must not be installed side by side.
-    # Keep generation idempotent by removing prior matching declarations first.
+    # v1.1+: Extended is technically isolated and can coexist with upstream.
+    # Remove old replacement/conflict declarations from earlier builds.
     for tag in ("conflict", "replace"):
         for node in list(root.findall(f"p:{tag}", ns)):
             if (node.text or "").strip() == "LCInterlocking":
                 root.remove(node)
-
-    conflict = ET.SubElement(root, f"{{{ns['p']}}}conflict")
-    conflict.set("type", "addon")
-    conflict.text = "LCInterlocking"
-
-    replace = ET.SubElement(root, f"{{{ns['p']}}}replace")
-    replace.set("type", "addon")
-    replace.text = "LCInterlocking"
 
     tree.write(path, encoding="utf-8", xml_declaration=True)
 
@@ -263,6 +253,8 @@ https://github.com/grandcedrebleu/LCInterlocking-Extended
 ## What Extended adds
 
 This distribution adds a configurable **through-cut margin** to MultiJoin operations.
+
+From version 1.1.0, its Python packages and FreeCAD GUI command IDs are namespaced so it can coexist safely with the standard LCInterlocking addon.
 
 Default value:
 
@@ -300,18 +292,13 @@ LGPL-2.1-or-later, matching the upstream LCInterlocking project.
 
 
 def patch_workbench_identity(dist):
-    """Change only user-visible workbench labels, never Python identifiers."""
+    """Give Extended a unique visible label and Python workbench class."""
     initgui = dist / "InitGui.py"
     if not initgui.exists():
         raise RuntimeError("InitGui.py not found in generated upstream workbench.")
 
     text = initgui.read_text(encoding="utf-8")
 
-    # Upstream class/function identifiers must remain untouched:
-    #   class LCInterlockingWorkbench(Workbench):
-    #   Gui.addWorkbench(LCInterlockingWorkbench())
-    #
-    # Only replace the visible MenuText string.
     patterns = [
         (
             r'(?m)^(\s*MenuText\s*=\s*)["\']Laser cut Interlocking["\'](\s*)$',
@@ -327,31 +314,153 @@ def patch_workbench_identity(dist):
     for pattern, replacement in patterns:
         text, count = re.subn(pattern, replacement, text)
         total += count
-
     if total != 1:
         raise RuntimeError(
             "InitGui workbench label: expected exactly one visible MenuText anchor, "
             f"found {total}. Upstream changed: review before releasing."
         )
 
-    # Defensive validation: never allow the broken identifier we previously generated.
-    forbidden = [
-        "class LCInterlocking ExtendedWorkbench",
-        "Gui.addWorkbench(LCInterlocking ExtendedWorkbench",
-    ]
-    for item in forbidden:
-        if item in text:
-            raise RuntimeError(
-                "Invalid Python identifier detected in InitGui.py: " + item
-            )
-
-    # Ensure the expected upstream Python identifier is still present.
-    if "LCInterlockingWorkbench" not in text:
+    class_pattern = r'(?m)^class\s+LCInterlockingWorkbench\s*\(Workbench\)\s*:'
+    text, count = re.subn(
+        class_pattern,
+        'class LCInterlockingExtendedWorkbench(Workbench):',
+        text,
+        count=1,
+    )
+    if count != 1:
         raise RuntimeError(
-            "Expected upstream Python identifier LCInterlockingWorkbench not found."
+            "InitGui class: expected exactly one LCInterlockingWorkbench declaration."
+        )
+
+    add_pattern = r'Gui\.addWorkbench\(LCInterlockingWorkbench\(\)\)'
+    text, count = re.subn(
+        add_pattern,
+        'Gui.addWorkbench(LCInterlockingExtendedWorkbench())',
+        text,
+        count=1,
+    )
+    if count != 1:
+        raise RuntimeError(
+            "InitGui registration: expected exactly one upstream workbench registration."
         )
 
     initgui.write_text(text, encoding="utf-8")
+
+
+def _rewrite_imports_in_file(path):
+    """Rewrite known upstream package imports to Extended-only names."""
+    text = path.read_text(encoding="utf-8")
+    original = text
+
+    # Safe and common form: from panel.foo import X / from lasercut.foo import X
+    text = re.sub(r'(?m)^(\s*)from\s+lasercut(?=\.|\s+import\b)',
+                  r'\1from lcie_lasercut', text)
+    text = re.sub(r'(?m)^(\s*)from\s+panel(?=\.|\s+import\b)',
+                  r'\1from lcie_panel', text)
+
+    # Exact package imports, preserving the local variable name expected by code.
+    text = re.sub(r'(?m)^(\s*)import\s+lasercut\s*(#.*)?$',
+                  r'\1import lcie_lasercut as lasercut \2', text)
+    text = re.sub(r'(?m)^(\s*)import\s+panel\s*(#.*)?$',
+                  r'\1import lcie_panel as panel \2', text)
+
+    if text != original:
+        path.write_text(text, encoding="utf-8")
+
+
+def namespace_python_modules(dist):
+    """Isolate Extended from the upstream workbench's top-level Python names."""
+    # Rewrite imports before renaming directories.
+    for py in dist.rglob("*.py"):
+        _rewrite_imports_in_file(py)
+
+    # Root command modules are imported by name from InitGui.py and would also collide.
+    root_modules = {
+        "ExportPanel.py": "LCIE_ExportPanel.py",
+        "MakeBoxPanel.py": "LCIE_MakeBoxPanel.py",
+        "MakeRoundedBoxPanel.py": "LCIE_MakeRoundedBoxPanel.py",
+    }
+
+    initgui = dist / "InitGui.py"
+    text = initgui.read_text(encoding="utf-8")
+    for old_name, new_name in root_modules.items():
+        old_mod = old_name[:-3]
+        new_mod = new_name[:-3]
+        pattern = rf'(?m)^(\s*)import\s+{re.escape(old_mod)}\s*$'
+        text, count = re.subn(pattern, rf'\1import {new_mod}', text)
+        if count != 1:
+            raise RuntimeError(
+                f"InitGui root import {old_mod}: expected exactly one anchor, found {count}."
+            )
+    initgui.write_text(text, encoding="utf-8")
+
+    for old_name, new_name in root_modules.items():
+        old = dist / old_name
+        new = dist / new_name
+        if not old.exists():
+            raise RuntimeError(f"Expected upstream root module not found: {old_name}")
+        old.rename(new)
+
+    renames = {
+        "lasercut": "lcie_lasercut",
+        "panel": "lcie_panel",
+    }
+    for old_name, new_name in renames.items():
+        old = dist / old_name
+        new = dist / new_name
+        if not old.is_dir():
+            raise RuntimeError(f"Expected upstream package not found: {old_name}")
+        old.rename(new)
+
+    # Reject any unsafe imports left behind. Failing the build is safer than silently
+    # producing an addon that can collide with the standard LCInterlocking workbench.
+    unsafe = []
+    unsafe_pattern = re.compile(
+        r'(?m)^\s*(?:from\s+(?:lasercut|panel)(?:\.|\s)|'
+        r'import\s+(?:lasercut|panel)(?:\.|\s|$))'
+    )
+    for py in dist.rglob("*.py"):
+        content = py.read_text(encoding="utf-8")
+        if unsafe_pattern.search(content):
+            unsafe.append(str(py.relative_to(dist)))
+    if unsafe:
+        raise RuntimeError(
+            "Unsafe upstream imports remain after namespacing: " + ", ".join(unsafe)
+        )
+
+
+def namespace_gui_commands(dist):
+    """Prefix global FreeCAD GUI command IDs so both workbenches can coexist."""
+    command_pattern = re.compile(
+        r'(?:Gui|FreeCADGui)\.addCommand\(\s*["\']([^"\']+)["\']'
+    )
+    command_ids = set()
+    for py in dist.rglob("*.py"):
+        command_ids.update(command_pattern.findall(py.read_text(encoding="utf-8")))
+
+    if not command_ids:
+        raise RuntimeError("No FreeCAD GUI command IDs found; upstream structure changed.")
+
+    # Replace exact Python string literals matching registered command IDs.
+    # This covers both addCommand() registration and toolbar/menu command lists.
+    for py in dist.rglob("*.py"):
+        text = py.read_text(encoding="utf-8")
+        original = text
+        for cmd in sorted(command_ids, key=len, reverse=True):
+            prefixed = "LCIE_" + cmd
+            text = text.replace(f'"{cmd}"', f'"{prefixed}"')
+            text = text.replace(f"'{cmd}'", f"'{prefixed}'")
+        if text != original:
+            py.write_text(text, encoding="utf-8")
+
+    # Validate that every registered command now has our prefix.
+    remaining = []
+    for py in dist.rglob("*.py"):
+        for cmd in command_pattern.findall(py.read_text(encoding="utf-8")):
+            if not cmd.startswith("LCIE_"):
+                remaining.append((str(py.relative_to(dist)), cmd))
+    if remaining:
+        raise RuntimeError(f"Unnamespaced GUI commands remain: {remaining}")
 
 def main():
     cfg = read_upstream()
@@ -370,9 +479,11 @@ def main():
     shutil.copytree(src, DIST, ignore=shutil.ignore_patterns(".git", ".github"))
     patch_helper(DIST / "lasercut/helper.py")
     patch_multiplejoins(DIST / "panel/multiplejoins.py")
+    patch_workbench_identity(DIST)
+    namespace_python_modules(DIST)
+    namespace_gui_commands(DIST)
     update_package(DIST / "package.xml", version)
     write_extended_readme(DIST, version)
-    patch_workbench_identity(DIST)
 
     # Extended documentation and diagnostic material
     overlay = ROOT / "overlay"
