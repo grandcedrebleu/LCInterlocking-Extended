@@ -1,27 +1,76 @@
 # Compatibility
 
-## 1.0.0 baseline
+## LCInterlocking Extended 1.0.0
 
-| Component | Baseline / status |
+| Component | Version / status |
 |---|---|
-| LCInterlocking | 1.5.1 |
-| FreeCAD | 1.1.x validation target |
-| Python | supplied by FreeCAD |
-| Qt | supplied by FreeCAD |
-| OpenCASCADE | supplied by FreeCAD |
+| LCInterlocking Extended | 1.0.0 |
+| LCInterlocking upstream baseline | 1.5.1 |
+| FreeCAD | **TO COMPLETE BEFORE FINAL TAG** |
+| Installation method | FreeCAD Addon Manager |
+| Through-cut margin tested | 0.100 mm per side |
+| Functional regression test | PASS |
+| Residual slot skin | NOT OBSERVED |
+| Validation date | 2026-08-27 |
 
-The build script validates the upstream source anchors before altering anything.
-A successful source build does **not** by itself certify a new FreeCAD major/minor
-version: the regression case must still be run in that FreeCAD version.
+## Validated behavior
+
+The 1.0.0 release candidate was installed from FreeCAD using the generated `dist`
+branch of the LCInterlocking Extended repository.
+
+The following checks passed:
+
+1. FreeCAD recognizes the addon as **LCInterlocking Extended**.
+2. The workbench appears as **Laser Cut Interlocking Extended**.
+3. MultiJoin exposes **Cut parameters → Marge traversante**.
+4. The default value is **0.100 mm**.
+5. Preview/final generation loads the Extended code successfully.
+6. A real slot that previously produced a thin residual bottom face was regenerated.
+7. No residual skin was observed.
+
+## Exact FreeCAD build
+
+Before publishing the final `v1.0.0` tag, replace the line below with the exact
+information copied from **Help → About FreeCAD → Copy to clipboard**:
+
+```text
+FreeCAD exact version/build: TO COMPLETE
+```
+
+This information is intentionally not guessed.
 
 ## Future FreeCAD versions
 
-No FreeCAD installation path is hard-coded. Installation is delegated to FreeCAD's
-Addon Manager.
+No FreeCAD installation path is hard-coded in LCInterlocking Extended. Installation
+is delegated to FreeCAD's Addon Manager, so version-specific user `Mod` directory
+changes do not require changes to this project.
 
-For every new FreeCAD release:
-1. install the generated Extended workbench through that FreeCAD instance;
-2. run the representative slot regression;
-3. verify MultiJoin preview and final generation;
-4. record the result here;
-5. publish a new patch/minor release if needed.
+A new FreeCAD version is not automatically considered compatible merely because the
+addon installs successfully.
+
+For every FreeCAD major/minor release to be declared supported:
+
+1. install LCInterlocking Extended using that FreeCAD instance;
+2. confirm the workbench loads;
+3. confirm `Marge traversante` is available;
+4. run the residual-skin regression case;
+5. test MultiJoin preview;
+6. test final MultiJoin generation;
+7. record the exact FreeCAD version/build here;
+8. update the changelog if a new Extended release is required.
+
+## Upstream LCInterlocking upgrades
+
+The complete workbench is regenerated from the version pinned in `UPSTREAM`.
+
+When upgrading the upstream baseline:
+
+1. change the upstream `ref`;
+2. run the guarded build;
+3. investigate any failed patch anchor;
+4. verify whether upstream has implemented an equivalent fix;
+5. rebuild;
+6. repeat all functional regression tests;
+7. update this compatibility matrix.
+
+A successful source build alone is not sufficient to declare compatibility.
