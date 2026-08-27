@@ -225,8 +225,29 @@ def update_package(path, version):
         elif url_type in ("readme", "documentation"):
             url.text = repository_url
 
-    tree.write(path, encoding="utf-8", xml_declaration=True)
+    # Minimum FreeCAD version actually validated for Extended 1.0.0.
+    freecadmin = child("freecadmin")
+    if freecadmin is None:
+        freecadmin = ET.SubElement(root, f"{{{ns['p']}}}freecadmin")
+    freecadmin.text = "1.1.1"
 
+    # Extended and upstream LCInterlocking expose the same Python module names
+    # (lasercut, panel, ...). They must not be installed side by side.
+    # Keep generation idempotent by removing prior matching declarations first.
+    for tag in ("conflict", "replace"):
+        for node in list(root.findall(f"p:{tag}", ns)):
+            if (node.text or "").strip() == "LCInterlocking":
+                root.remove(node)
+
+    conflict = ET.SubElement(root, f"{{{ns['p']}}}conflict")
+    conflict.set("type", "addon")
+    conflict.text = "LCInterlocking"
+
+    replace = ET.SubElement(root, f"{{{ns['p']}}}replace")
+    replace.set("type", "addon")
+    replace.text = "LCInterlocking"
+
+    tree.write(path, encoding="utf-8", xml_declaration=True)
 
 def write_extended_readme(dist, version):
     readme = f"""# LCInterlocking Extended
