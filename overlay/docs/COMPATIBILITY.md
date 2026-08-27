@@ -6,7 +6,7 @@
 |---|---|
 | LCInterlocking Extended | 1.0.0 |
 | LCInterlocking upstream baseline | 1.5.1 |
-| FreeCAD | **TO COMPLETE BEFORE FINAL TAG** |
+| FreeCAD | **1.1.1** |
 | Installation method | FreeCAD Addon Manager |
 | Through-cut margin tested | 0.100 mm per side |
 | Functional regression test | PASS |
@@ -34,7 +34,7 @@ Before publishing the final `v1.0.0` tag, replace the line below with the exact
 information copied from **Help → About FreeCAD → Copy to clipboard**:
 
 ```text
-FreeCAD exact version/build: TO COMPLETE
+FreeCAD exact version/build: 1.1.1
 ```
 
 This information is intentionally not guessed.
