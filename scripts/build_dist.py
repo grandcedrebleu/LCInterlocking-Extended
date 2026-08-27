@@ -279,31 +279,56 @@ LGPL-2.1-or-later, matching the upstream LCInterlocking project.
 
 
 def patch_workbench_identity(dist):
-    """Make the installed FreeCAD workbench visibly distinguishable from upstream."""
+    """Change only user-visible workbench labels, never Python identifiers."""
     initgui = dist / "InitGui.py"
     if not initgui.exists():
         raise RuntimeError("InitGui.py not found in generated upstream workbench.")
 
     text = initgui.read_text(encoding="utf-8")
 
-    # Replace visible workbench menu/display strings conservatively.
-    replacements = [
-        ("Laser cut Interlocking", "Laser cut Interlocking Extended"),
-        ("Laser Cut Interlocking", "Laser Cut Interlocking Extended"),
-        ("LCInterlocking", "LCInterlocking Extended"),
+    # Upstream class/function identifiers must remain untouched:
+    #   class LCInterlockingWorkbench(Workbench):
+    #   Gui.addWorkbench(LCInterlockingWorkbench())
+    #
+    # Only replace the visible MenuText string.
+    patterns = [
+        (
+            r'(?m)^(\s*MenuText\s*=\s*)["\']Laser cut Interlocking["\'](\s*)$',
+            r'\1"Laser cut Interlocking Extended"\2',
+        ),
+        (
+            r'(?m)^(\s*MenuText\s*=\s*)["\']Laser Cut Interlocking["\'](\s*)$',
+            r'\1"Laser Cut Interlocking Extended"\2',
+        ),
     ]
 
-    changed = False
-    for old, new in replacements:
-        if old in text and new not in text:
-            text = text.replace(old, new)
-            changed = True
+    total = 0
+    for pattern, replacement in patterns:
+        text, count = re.subn(pattern, replacement, text)
+        total += count
 
-    # If upstream exposes MenuText explicitly, ensure Extended is visible.
-    if not changed:
-        # Do not fail merely because upstream uses icons/commands without a visible title here.
-        # package.xml and README still provide the Extended identity.
-        pass
+    if total != 1:
+        raise RuntimeError(
+            "InitGui workbench label: expected exactly one visible MenuText anchor, "
+            f"found {total}. Upstream changed: review before releasing."
+        )
+
+    # Defensive validation: never allow the broken identifier we previously generated.
+    forbidden = [
+        "class LCInterlocking ExtendedWorkbench",
+        "Gui.addWorkbench(LCInterlocking ExtendedWorkbench",
+    ]
+    for item in forbidden:
+        if item in text:
+            raise RuntimeError(
+                "Invalid Python identifier detected in InitGui.py: " + item
+            )
+
+    # Ensure the expected upstream Python identifier is still present.
+    if "LCInterlockingWorkbench" not in text:
+        raise RuntimeError(
+            "Expected upstream Python identifier LCInterlockingWorkbench not found."
+        )
 
     initgui.write_text(text, encoding="utf-8")
 
