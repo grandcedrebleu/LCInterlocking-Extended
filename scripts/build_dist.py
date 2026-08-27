@@ -196,26 +196,116 @@ def update_package(path, version):
     ET.register_namespace("", ns["p"])
     tree = ET.parse(path)
     root = tree.getroot()
+
     def child(name):
         return root.find(f"p:{name}", ns)
+
     child("name").text = "LCInterlocking Extended"
     child("description").text = (
-        "LCInterlocking with configurable through-cut margin to prevent residual slot skin"
+        "LCInterlocking with configurable through-cut margin "
+        "to prevent residual slot skin"
     )
     child("version").text = version
+
     maint = child("maintainer")
-    maint.text = "LCInterlocking Extended maintainers"
+    if maint is not None:
+        maint.text = "grandcedrebleu"
+
     author = child("author")
     if author is not None:
         author.text = "execuc and LCInterlocking Extended contributors"
+
+    repository_url = "https://github.com/grandcedrebleu/LCInterlocking-Extended"
+
     for url in root.findall("p:url", ns):
-        if url.attrib.get("type") == "repository":
-            # Replace after GitHub publication with the actual repository URL.
-            url.text = "https://github.com/REPLACE_WITH_OWNER/LCInterlocking-Extended"
+        url_type = url.attrib.get("type")
+        if url_type == "repository":
+            url.text = repository_url
             url.set("branch", "dist")
-        elif url.attrib.get("type") in ("readme", "documentation"):
-            url.text = "https://github.com/REPLACE_WITH_OWNER/LCInterlocking-Extended"
+        elif url_type in ("readme", "documentation"):
+            url.text = repository_url
+
     tree.write(path, encoding="utf-8", xml_declaration=True)
+
+
+def write_extended_readme(dist, version):
+    readme = f"""# LCInterlocking Extended
+
+**Version {version}**
+
+LCInterlocking Extended is a maintained FreeCAD workbench based on the original
+LCInterlocking project by execuc.
+
+Repository:
+https://github.com/grandcedrebleu/LCInterlocking-Extended
+
+## What Extended adds
+
+This distribution adds a configurable **through-cut margin** to MultiJoin operations.
+
+Default value:
+
+- 0.10 mm on each side of the contact plane
+- 0.20 mm total extension of the boolean cutting solid
+
+The purpose is to prevent the very thin residual face ("skin") that can remain at the
+bottom of a slot when the cutting solid ends exactly on the opposite face.
+
+## Installation
+
+Install **LCInterlocking Extended** from FreeCAD's Addon Manager.
+
+FreeCAD determines the correct user `Mod` directory for the running FreeCAD version.
+No Windows, Linux or macOS installation path is hard-coded.
+
+## Upstream
+
+Based on LCInterlocking 1.5.1:
+https://github.com/execuc/LCInterlocking
+
+## Maintenance
+
+The complete installable workbench in this branch is generated automatically from a
+pinned upstream LCInterlocking revision.
+
+The maintenance source, guarded patching logic and compatibility documentation are
+kept on the `main` branch of this repository.
+
+## License
+
+LGPL-2.1-or-later, matching the upstream LCInterlocking project.
+"""
+    (dist / "README.md").write_text(readme, encoding="utf-8")
+
+
+def patch_workbench_identity(dist):
+    """Make the installed FreeCAD workbench visibly distinguishable from upstream."""
+    initgui = dist / "InitGui.py"
+    if not initgui.exists():
+        raise RuntimeError("InitGui.py not found in generated upstream workbench.")
+
+    text = initgui.read_text(encoding="utf-8")
+
+    # Replace visible workbench menu/display strings conservatively.
+    replacements = [
+        ("Laser cut Interlocking", "Laser cut Interlocking Extended"),
+        ("Laser Cut Interlocking", "Laser Cut Interlocking Extended"),
+        ("LCInterlocking", "LCInterlocking Extended"),
+    ]
+
+    changed = False
+    for old, new in replacements:
+        if old in text and new not in text:
+            text = text.replace(old, new)
+            changed = True
+
+    # If upstream exposes MenuText explicitly, ensure Extended is visible.
+    if not changed:
+        # Do not fail merely because upstream uses icons/commands without a visible title here.
+        # package.xml and README still provide the Extended identity.
+        pass
+
+    initgui.write_text(text, encoding="utf-8")
 
 def main():
     cfg = read_upstream()
@@ -235,6 +325,8 @@ def main():
     patch_helper(DIST / "lasercut/helper.py")
     patch_multiplejoins(DIST / "panel/multiplejoins.py")
     update_package(DIST / "package.xml", version)
+    write_extended_readme(DIST, version)
+    patch_workbench_identity(DIST)
 
     # Extended documentation and diagnostic material
     overlay = ROOT / "overlay"
