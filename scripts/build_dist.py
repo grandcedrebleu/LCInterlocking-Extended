@@ -115,6 +115,7 @@ def patch_multiplejoins(path):
                 cp_tab.recomputeInit(freecad_obj, freecad_face)
                 tabs.append(cp_tab)
 """
+
     new_preview = """            for tab in fp.faces.lst:
                 cp_tab = copy.deepcopy(tab)
                 freecad_obj = document.getObject(cp_tab.freecad_obj_name)
@@ -123,10 +124,15 @@ def patch_multiplejoins(path):
                 cp_tab.cut_through_margin = float(fp.CutThroughMargin.Value)
                 tabs.append(cp_tab)
 """
-    text = replace_once(text, old_preview, new_preview, "preview propagation")
 
-    # The same block exists again in final execute in 1.5.1, after the preview block was replaced.
-    text = replace_once(text, old_preview, new_preview, "execute propagation")
+    preview_count = text.count(old_preview)
+    if preview_count != 2:
+        raise RuntimeError(
+            "preview/execute propagation: expected exactly two upstream anchors, "
+            f"found {preview_count}. Upstream changed: review before releasing."
+        )
+
+    text = text.replace(old_preview, new_preview, 2)
 
     marker = """class MultipleJoins(TreePanel):
     def __init__(self, obj_join):
