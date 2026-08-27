@@ -358,11 +358,21 @@ def _rewrite_imports_in_file(path):
     text = re.sub(r'(?m)^(\s*)from\s+panel(?=\.|\s+import\b)',
                   r'\1from lcie_panel', text)
 
-    # Exact package imports, preserving the local variable name expected by code.
+    # Package imports. Cover both:
+    #   import lasercut
+    #   import lasercut.helper as helper
+    # and the corresponding panel forms.
+    # For an exact package import, keep the original local variable name.
     text = re.sub(r'(?m)^(\s*)import\s+lasercut\s*(#.*)?$',
                   r'\1import lcie_lasercut as lasercut \2', text)
     text = re.sub(r'(?m)^(\s*)import\s+panel\s*(#.*)?$',
                   r'\1import lcie_panel as panel \2', text)
+
+    # Qualified imports such as "import lasercut.helper as helper".
+    text = re.sub(r'(?m)^(\s*)import\s+lasercut(?=\.)',
+                  r'\1import lcie_lasercut', text)
+    text = re.sub(r'(?m)^(\s*)import\s+panel(?=\.)',
+                  r'\1import lcie_panel', text)
 
     if text != original:
         path.write_text(text, encoding="utf-8")
