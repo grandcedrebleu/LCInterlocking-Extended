@@ -1,0 +1,11 @@
+{
+  "LCInterlockingExtended": [
+    {
+      "repository": "https://github.com/REPLACE_WITH_OWNER/LCInterlocking-Extended",
+      "git_ref": "dist",
+      "branch_display_name": "stable",
+      "zip_url": "https://github.com/REPLACE_WITH_OWNER/LCInterlocking-Extended/archive/refs/heads/dist.zip",
+      "curated": false
+    }
+  ]
+}
