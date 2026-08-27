@@ -6,17 +6,21 @@
 |---|---|
 | LCInterlocking Extended | 1.0.0 |
 | LCInterlocking upstream baseline | 1.5.1 |
-| FreeCAD | **1.1.1** |
 | Installation method | FreeCAD Addon Manager |
 | Through-cut margin tested | 0.100 mm per side |
-| Functional regression test | PASS |
-| Residual slot skin | NOT OBSERVED |
 | Validation date | 2026-08-27 |
+
+## FreeCAD validation matrix
+
+| FreeCAD | Extended | Upstream baseline | Addon Manager install | MultiJoin margin | Residual-skin regression | Status |
+|---|---|---|---|---|---|---|
+| 1.1.1 | 1.0.0 | LCInterlocking 1.5.1 | PASS | 0.100 mm | No residual skin | PASS |
+| 1.1.3 | 1.0.0 | LCInterlocking 1.5.1 | PASS | 0.100 mm | No residual skin | PASS |
 
 ## Validated behavior
 
-The 1.0.0 release candidate was installed from FreeCAD using the generated `dist`
-branch of the LCInterlocking Extended repository.
+LCInterlocking Extended 1.0.0 was installed and functionally tested with FreeCAD
+1.1.1 and FreeCAD 1.1.3 using the generated `dist` branch of the repository.
 
 The following checks passed:
 
@@ -34,7 +38,7 @@ Before publishing the final `v1.0.0` tag, replace the line below with the exact
 information copied from **Help → About FreeCAD → Copy to clipboard**:
 
 ```text
-FreeCAD exact version/build: 1.1.1
+Validated FreeCAD releases: 1.1.1 and 1.1.3
 ```
 
 This information is intentionally not guessed.
