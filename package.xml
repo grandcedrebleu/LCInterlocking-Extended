@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='utf-8'?>
+<package xmlns="https://wiki.freecad.org/Package_Metadata" format="1">
+  <name>LCInterlocking Extended</name>
+  <description>LCInterlocking with configurable through-cut margin and isolated Python namespace for safe coexistence</description>
+  <version>1.1.0</version>
+  <date>2026-08-28</date>
+  <maintainer>grandcedrebleu</maintainer>
+  <author>execuc and LCInterlocking Extended contributors</author>
+  <license file="LICENSE">LGPL-2.1-or-later</license>
+  <url type="repository" branch="dist">https://github.com/grandcedrebleu/LCInterlocking-Extended</url>
+  <url type="readme">https://github.com/grandcedrebleu/LCInterlocking-Extended</url>
+  <url type="documentation">https://github.com/grandcedrebleu/LCInterlocking-Extended</url>
+  <icon>small_icon.svg</icon>
+  <content>
+    <workbench>
+      <classname>LCInterlockingExtendedWorkbench</classname>
+      <subdirectory>./</subdirectory>
+    </workbench>
+  </content>
+<freecadmin>1.1.1</freecadmin></package>

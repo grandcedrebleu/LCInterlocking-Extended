@@ -1,0 +1,145 @@
+# -*- coding: utf-8 -*-
+# Diagnostic décisif LCInterlocking
+#
+# Sélectionner exactement, dans cet ordre :
+# 1) DEBUG avant Cut - Extrude...
+# 2) DEBUG outil mortaise Extrude... #1
+# 3) DEBUG après Cut - Extrude...
+#
+# Puis lancer cette macro.
+
+import FreeCAD as App
+import FreeCADGui as Gui
+
+doc = App.ActiveDocument
+if doc is None:
+    raise RuntimeError("Aucun document FreeCAD ouvert.")
+
+sel = Gui.Selection.getSelection()
+if len(sel) != 3:
+    raise RuntimeError(
+        "Sélectionne exactement 3 objets, dans cet ordre : "
+        "1) DEBUG avant Cut, 2) DEBUG outil mortaise, 3) DEBUG après Cut."
+    )
+
+before_obj, tool_obj, after_obj = sel
+before = before_obj.Shape.copy()
+tool = tool_obj.Shape.copy()
+after = after_obj.Shape.copy()
+
+PREFIX = "DIAG_DECISIF_"
+
+for obj in list(doc.Objects):
+    if obj.Name.startswith(PREFIX):
+        doc.removeObject(obj.Name)
+doc.recompute()
+
+def stats(label, shape):
+    App.Console.PrintMessage(
+        "%s | type=%s | valid=%s | solids=%d | faces=%d | edges=%d | "
+        "vertices=%d | volume=%.12f | area=%.12f\n"
+        % (
+            label,
+            getattr(shape, "ShapeType", "?"),
+            shape.isValid(),
+            len(shape.Solids),
+            len(shape.Faces),
+            len(shape.Edges),
+            len(shape.Vertexes),
+            shape.Volume,
+            shape.Area
+        )
+    )
+
+def add_result(name, label, shape, color):
+    obj = doc.addObject("Part::Feature", PREFIX + name)
+    obj.Label = label
+    obj.Shape = shape
+    obj.ViewObject.ShapeColor = color
+    obj.ViewObject.Transparency = 15
+    return obj
+
+App.Console.PrintMessage("\n=== DIAGNOSTIC DECISIF LCINTERLOCKING ===\n")
+App.Console.PrintMessage(
+    "Avant : %s\nOutil : %s\nAprès : %s\n\n"
+    % (before_obj.Label, tool_obj.Label, after_obj.Label)
+)
+
+stats("AVANT", before)
+stats("OUTIL", tool)
+stats("APRES_PLUGIN", after)
+
+# Reproduction exacte attendue du plugin
+calc_cut = before.cut(tool)
+stats("CUT_RECALCULE", calc_cut)
+
+try:
+    calc_refined = calc_cut.removeSplitter()
+except Exception:
+    calc_refined = calc_cut.copy()
+
+stats("CUT_RECALCULE_REFINE", calc_refined)
+
+# Comparaison géométrique plugin / recalcul
+plugin_minus_calc = after.cut(calc_cut)
+calc_minus_plugin = calc_cut.cut(after)
+
+plugin_minus_refined = after.cut(calc_refined)
+refined_minus_plugin = calc_refined.cut(after)
+
+App.Console.PrintMessage("\n=== COMPARAISONS VOLUMIQUES ===\n")
+App.Console.PrintMessage(
+    "APRES_PLUGIN - CUT_RECALCULE : volume=%.12g | area=%.12g\n"
+    % (plugin_minus_calc.Volume, plugin_minus_calc.Area)
+)
+App.Console.PrintMessage(
+    "CUT_RECALCULE - APRES_PLUGIN : volume=%.12g | area=%.12g\n"
+    % (calc_minus_plugin.Volume, calc_minus_plugin.Area)
+)
+App.Console.PrintMessage(
+    "APRES_PLUGIN - CUT_REFINE : volume=%.12g | area=%.12g\n"
+    % (plugin_minus_refined.Volume, plugin_minus_refined.Area)
+)
+App.Console.PrintMessage(
+    "CUT_REFINE - APRES_PLUGIN : volume=%.12g | area=%.12g\n"
+    % (refined_minus_plugin.Volume, refined_minus_plugin.Area)
+)
+
+# Objets visibles
+add_result("01_CUT_RECALCULE", "DIAG - Cut recalculé", calc_cut, (0.2, 0.8, 0.2))
+add_result("02_CUT_REFINE", "DIAG - Cut recalculé refine", calc_refined, (0.2, 0.4, 1.0))
+add_result("03_PLUGIN_MOINS_CALC", "DIAG - Plugin moins recalcul", plugin_minus_calc, (1.0, 0.2, 0.2))
+add_result("04_CALC_MOINS_PLUGIN", "DIAG - Recalcul moins plugin", calc_minus_plugin, (1.0, 0.0, 1.0))
+
+same_volume = (
+    abs(plugin_minus_calc.Volume) < 1e-9 and
+    abs(calc_minus_plugin.Volume) < 1e-9
+)
+
+same_topology = (
+    len(after.Faces) == len(calc_cut.Faces) and
+    len(after.Edges) == len(calc_cut.Edges) and
+    len(after.Vertexes) == len(calc_cut.Vertexes)
+)
+
+App.Console.PrintMessage("\n=== CONCLUSION AUTOMATIQUE ===\n")
+
+if not same_volume:
+    App.Console.PrintMessage(
+        "RESULTAT : le plugin ne produit pas le meme volume que before.cut(tool).\n"
+    )
+elif same_topology:
+    App.Console.PrintMessage(
+        "RESULTAT : meme volume ET meme topologie. "
+        "L'arete visible est deja produite par le cut OpenCascade.\n"
+    )
+else:
+    App.Console.PrintMessage(
+        "RESULTAT : meme volume MAIS topologie differente. "
+        "Le plugin ou une etape ulterieure modifie les faces/aretes.\n"
+    )
+
+App.Console.PrintMessage("=== FIN DIAGNOSTIC DECISIF LCINTERLOCKING ===\n")
+
+doc.recompute()
+Gui.activeDocument().activeView().fitAll()
