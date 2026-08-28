@@ -213,10 +213,18 @@ def update_package(path, version):
         date_node = ET.SubElement(root, f"{{{ns['p']}}}date")
     date_node.text = "2026-08-28"
 
-    classname = child("classname")
+    # classname belongs inside content/workbench, not at package root.
+    workbench = root.find("p:content/p:workbench", ns)
+    if workbench is None:
+        raise RuntimeError("package.xml is missing content/workbench")
+    classname = workbench.find("p:classname", ns)
     if classname is None:
-        classname = ET.SubElement(root, f"{{{ns['p']}}}classname")
+        classname = ET.SubElement(workbench, f"{{{ns['p']}}}classname")
     classname.text = "LCInterlockingExtendedWorkbench"
+
+    # Remove any accidental root-level classname created by older generator versions.
+    for stray in list(root.findall("p:classname", ns)):
+        root.remove(stray)
 
     maint = child("maintainer")
     if maint is not None:
@@ -252,8 +260,11 @@ def update_package(path, version):
         raise RuntimeError("package.xml version update failed")
     if child("date").text != "2026-08-28":
         raise RuntimeError("package.xml date update failed")
-    if child("classname").text != "LCInterlockingExtendedWorkbench":
-        raise RuntimeError("package.xml classname update failed")
+    wb_check = root.find("p:content/p:workbench/p:classname", ns)
+    if wb_check is None or wb_check.text != "LCInterlockingExtendedWorkbench":
+        raise RuntimeError("package.xml workbench classname update failed")
+    if root.find("p:classname", ns) is not None:
+        raise RuntimeError("package.xml contains an invalid root-level classname")
     if child("freecadmin").text != "1.1.1":
         raise RuntimeError("package.xml freecadmin update failed")
 
