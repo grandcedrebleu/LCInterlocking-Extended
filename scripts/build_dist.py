@@ -207,6 +207,17 @@ def update_package(path, version):
     )
     child("version").text = version
 
+    # Release metadata for LCInterlocking Extended 1.1.0.
+    date_node = child("date")
+    if date_node is None:
+        date_node = ET.SubElement(root, f"{{{ns['p']}}}date")
+    date_node.text = "2026-08-28"
+
+    classname = child("classname")
+    if classname is None:
+        classname = ET.SubElement(root, f"{{{ns['p']}}}classname")
+    classname.text = "LCInterlockingExtendedWorkbench"
+
     maint = child("maintainer")
     if maint is not None:
         maint.text = "grandcedrebleu"
@@ -236,6 +247,15 @@ def update_package(path, version):
         for node in list(root.findall(f"p:{tag}", ns)):
             if (node.text or "").strip() == "LCInterlocking":
                 root.remove(node)
+
+    if child("version").text != version:
+        raise RuntimeError("package.xml version update failed")
+    if child("date").text != "2026-08-28":
+        raise RuntimeError("package.xml date update failed")
+    if child("classname").text != "LCInterlockingExtendedWorkbench":
+        raise RuntimeError("package.xml classname update failed")
+    if child("freecadmin").text != "1.1.1":
+        raise RuntimeError("package.xml freecadmin update failed")
 
     tree.write(path, encoding="utf-8", xml_declaration=True)
 
