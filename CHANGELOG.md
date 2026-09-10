@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.2.1 - 2026-09-10
+
+### Fixed
+
+- Prevented `get_local_axis()` from mutating the face normal while projecting edge vectors. This could collapse the local frame and raise `ValueError: Degenerate local frame` on valid derived faces, including a real `Slice Apart` result.
+- Normalized copies of projected edge vectors so geometric ranking still uses the original projected edge length.
+- Prevented the Parts and Tabs editor from calling `.value()` on a not-yet-created widget during selection changes (`'NoneType' object has no attribute 'value'`).
+
+### Empirical status
+
+- FreeCAD 1.1.3 installation through the custom `dist` repository is validated.
+- A real single-solid `Slice Apart` child was correctly detected and its 10.0 mm material thickness was correctly measured by the 1.2.x final-Shape thickness logic.
+- The corrected local-face frame and complete Join operation must be re-tested in FreeCAD before publishing a `v1.2.1` release tag.
+
 ## 1.2.0 - 2026-09-10
 
 ### Added

@@ -6,6 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / "dist" / "LCInterlockingExtended"
 HELPER = DIST / "lcie_lasercut" / "helper.py"
 MATERIAL = DIST / "lcie_lasercut" / "material.py"
+TOOLWIDGET = DIST / "lcie_panel" / "toolwidget.py"
 README = DIST / "README.md"
 
 
@@ -43,7 +44,11 @@ def patch_helper():
 
     if normal_face.Length < 1e-9:
         raise ValueError("Selected face has an invalid normal")
-    x_local = normal_face.normalize()
+
+    # FreeCAD.Vector.normalize() and multiply() may mutate the vector instance.
+    # Keep the face normal immutable throughout frame construction.
+    x_local = FreeCAD.Vector(normal_face)
+    x_local.normalize()
 
     # Candidate directions are chords of the face edges.  This deliberately avoids
     # any dependency on edge count or wire ordering.  Curved edges are harmless:
@@ -57,11 +62,17 @@ def patch_helper():
         if vec.Length < 1e-7:
             continue
 
-        # Remove numerical component normal to the face.
-        projected = vec.sub(x_local.multiply(vec.dot(x_local)))
+        # Remove numerical component normal to the face without mutating x_local.
+        normal_component = FreeCAD.Vector(x_local)
+        normal_component.multiply(vec.dot(x_local))
+        projected = FreeCAD.Vector(vec)
+        projected.sub(normal_component)
         if projected.Length < 1e-7:
             continue
-        direction = projected.normalize()
+
+        # Normalize a copy so the projected length remains available for ranking.
+        direction = FreeCAD.Vector(projected)
+        direction.normalize()
 
         # Cluster parallel/anti-parallel directions and retain representative span.
         found = False
@@ -92,7 +103,6 @@ def patch_helper():
     if not transverse:
         raise ValueError("Unable to derive transverse direction from selected face")
     transverse.sort(key=lambda item: (item[0], item[1], item[2]), reverse=True)
-    z_dir = transverse[0][3]
 
     # Orthogonalize the secondary direction so the transformation remains rigid.
     z_dir = x_local.cross(y_dir)
@@ -114,8 +124,10 @@ def patch_helper():
     if y_span < 1e-7 or z_span < 1e-7:
         raise ValueError("Selected face has a degenerate projected extent")
 
-    y_local_not_normalized = y_dir.multiply(y_span)
-    z_local_not_normalized = z_dir.multiply(z_span)
+    y_local_not_normalized = FreeCAD.Vector(y_dir)
+    y_local_not_normalized.multiply(y_span)
+    z_local_not_normalized = FreeCAD.Vector(z_dir)
+    z_local_not_normalized.multiply(z_span)
     return x_local, y_local_not_normalized, z_local_not_normalized
 '''
 
@@ -184,6 +196,29 @@ def patch_material():
     MATERIAL.write_text(text, encoding="utf-8")
 
 
+def patch_toolwidget():
+    text = TOOLWIDGET.read_text(encoding="utf-8")
+    old = """    def get_properties(self):
+        for widget_config in self.widget_list:
+            if widget_config.type == float and not hasattr(widget_config, 'step'):
+"""
+    new = """    def get_properties(self):
+        for widget_config in self.widget_list:
+            # Selection changes can occur while an editor widget is still being
+            # constructed or just after it has been removed. Such entries have no
+            # live Qt widget to read and must simply be skipped.
+            if widget_config.widget is None:
+                continue
+            if widget_config.type == float and not hasattr(widget_config, 'step'):
+"""
+    count = text.count(old)
+    if count != 1:
+        raise RuntimeError(
+            f"toolwidget get_properties: expected exactly one generated anchor, found {count}"
+        )
+    TOOLWIDGET.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+
 def patch_readme():
     if not README.exists():
         return
@@ -200,22 +235,37 @@ def patch_readme():
 def validate():
     helper = HELPER.read_text(encoding="utf-8")
     material = MATERIAL.read_text(encoding="utf-8")
+    toolwidget = TOOLWIDGET.read_text(encoding="utf-8")
     required = [
         (helper, "any planar polygonal face"),
         (helper, "for edge in face.Edges"),
+        (helper, "normal_component = FreeCAD.Vector(x_local)"),
+        (helper, "direction = FreeCAD.Vector(projected)"),
         (material, "requires a single solid"),
         (material, "return min(spans)"),
+        (toolwidget, "if widget_config.widget is None:"),
     ]
     missing = [needle for text, needle in required if needle not in text]
     if missing:
         raise RuntimeError("Derived geometry patch validation failed: " + ", ".join(missing))
 
+    forbidden = [
+        "projected = vec.sub(x_local.multiply(vec.dot(x_local)))",
+        "direction = projected.normalize()",
+    ]
+    present = [needle for needle in forbidden if needle in helper]
+    if present:
+        raise RuntimeError(
+            "Unsafe mutating vector expressions remain: " + ", ".join(present)
+        )
+
 
 if __name__ == "__main__":
-    if not HELPER.exists() or not MATERIAL.exists():
+    if not HELPER.exists() or not MATERIAL.exists() or not TOOLWIDGET.exists():
         raise RuntimeError("Run scripts/build_dist.py before patch_derived_geometry.py")
     patch_helper()
     patch_material()
+    patch_toolwidget()
     patch_readme()
     validate()
     print("Derived geometry support patch applied")
