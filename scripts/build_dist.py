@@ -202,18 +202,17 @@ def update_package(path, version):
 
     child("name").text = "LCInterlocking Extended"
     child("description").text = (
-        "LCInterlocking with configurable through-cut margin "
+        "LCInterlocking with configurable through-cut margin, derived geometry support "
         "and isolated Python namespace for safe coexistence"
     )
     child("version").text = version
 
-    # Release metadata for LCInterlocking Extended 1.1.0.
+    # Release metadata for LCInterlocking Extended 1.2.0.
     date_node = child("date")
     if date_node is None:
         date_node = ET.SubElement(root, f"{{{ns['p']}}}date")
-    date_node.text = "2026-08-28"
+    date_node.text = "2026-09-10"
 
-    # classname belongs inside content/workbench, not at package root.
     workbench = root.find("p:content/p:workbench", ns)
     if workbench is None:
         raise RuntimeError("package.xml is missing content/workbench")
@@ -222,7 +221,6 @@ def update_package(path, version):
         classname = ET.SubElement(workbench, f"{{{ns['p']}}}classname")
     classname.text = "LCInterlockingExtendedWorkbench"
 
-    # Remove any accidental root-level classname created by older generator versions.
     for stray in list(root.findall("p:classname", ns)):
         root.remove(stray)
 
@@ -249,8 +247,6 @@ def update_package(path, version):
         freecadmin = ET.SubElement(root, f"{{{ns['p']}}}freecadmin")
     freecadmin.text = "1.1.1"
 
-    # v1.1+: Extended is technically isolated and can coexist with upstream.
-    # Remove old replacement/conflict declarations from earlier builds.
     for tag in ("conflict", "replace"):
         for node in list(root.findall(f"p:{tag}", ns)):
             if (node.text or "").strip() == "LCInterlocking":
@@ -258,7 +254,7 @@ def update_package(path, version):
 
     if child("version").text != version:
         raise RuntimeError("package.xml version update failed")
-    if child("date").text != "2026-08-28":
+    if child("date").text != "2026-09-10":
         raise RuntimeError("package.xml date update failed")
     wb_check = root.find("p:content/p:workbench/p:classname", ns)
     if wb_check is None or wb_check.text != "LCInterlockingExtendedWorkbench":
@@ -286,6 +282,9 @@ https://github.com/grandcedrebleu/LCInterlocking-Extended
 This distribution adds a configurable **through-cut margin** to MultiJoin operations.
 
 From version 1.1.0, its Python packages and FreeCAD GUI command IDs are namespaced so it can coexist safely with the standard LCInterlocking addon.
+
+From version 1.2.0, Extended also accepts derived single-solid geometry whose planar
+faces have been altered by Cut, Pocket, other boolean operations, Slice and Slice Apart.
 
 Default value:
 
@@ -323,7 +322,6 @@ LGPL-2.1-or-later, matching the upstream LCInterlocking project.
 
 
 def patch_workbench_identity(dist):
-    """Give Extended a unique visible label and Python workbench class."""
     initgui = dist / "InitGui.py"
     if not initgui.exists():
         raise RuntimeError("InitGui.py not found in generated upstream workbench.")
@@ -379,27 +377,19 @@ def patch_workbench_identity(dist):
 
 
 def _rewrite_imports_in_file(path):
-    """Rewrite known upstream package imports to Extended-only names."""
     text = path.read_text(encoding="utf-8")
     original = text
 
-    # Safe and common form: from panel.foo import X / from lasercut.foo import X
     text = re.sub(r'(?m)^(\s*)from\s+lasercut(?=\.|\s+import\b)',
                   r'\1from lcie_lasercut', text)
     text = re.sub(r'(?m)^(\s*)from\s+panel(?=\.|\s+import\b)',
                   r'\1from lcie_panel', text)
 
-    # Package imports. Cover both:
-    #   import lasercut
-    #   import lasercut.helper as helper
-    # and the corresponding panel forms.
-    # For an exact package import, keep the original local variable name.
     text = re.sub(r'(?m)^(\s*)import\s+lasercut\s*(#.*)?$',
                   r'\1import lcie_lasercut as lasercut \2', text)
     text = re.sub(r'(?m)^(\s*)import\s+panel\s*(#.*)?$',
                   r'\1import lcie_panel as panel \2', text)
 
-    # Qualified imports such as "import lasercut.helper as helper".
     text = re.sub(r'(?m)^(\s*)import\s+lasercut(?=\.)',
                   r'\1import lcie_lasercut', text)
     text = re.sub(r'(?m)^(\s*)import\s+panel(?=\.)',
@@ -410,12 +400,9 @@ def _rewrite_imports_in_file(path):
 
 
 def namespace_python_modules(dist):
-    """Isolate Extended from the upstream workbench's top-level Python names."""
-    # Rewrite imports before renaming directories.
     for py in dist.rglob("*.py"):
         _rewrite_imports_in_file(py)
 
-    # Root command modules are imported by name from InitGui.py and would also collide.
     root_modules = {
         "ExportPanel.py": "LCIE_ExportPanel.py",
         "MakeBoxPanel.py": "LCIE_MakeBoxPanel.py",
@@ -453,8 +440,6 @@ def namespace_python_modules(dist):
             raise RuntimeError(f"Expected upstream package not found: {old_name}")
         old.rename(new)
 
-    # Reject any unsafe imports left behind. Failing the build is safer than silently
-    # producing an addon that can collide with the standard LCInterlocking workbench.
     unsafe = []
     unsafe_pattern = re.compile(
         r'(?m)^\s*(?:from\s+(?:lasercut|panel)(?:\.|\s)|'
@@ -471,7 +456,6 @@ def namespace_python_modules(dist):
 
 
 def namespace_gui_commands(dist):
-    """Prefix global FreeCAD GUI command IDs so both workbenches can coexist."""
     command_pattern = re.compile(
         r'(?:Gui|FreeCADGui)\.addCommand\(\s*["\']([^"\']+)["\']'
     )
@@ -482,8 +466,6 @@ def namespace_gui_commands(dist):
     if not command_ids:
         raise RuntimeError("No FreeCAD GUI command IDs found; upstream structure changed.")
 
-    # Replace exact Python string literals matching registered command IDs.
-    # This covers both addCommand() registration and toolbar/menu command lists.
     for py in dist.rglob("*.py"):
         text = py.read_text(encoding="utf-8")
         original = text
@@ -494,7 +476,6 @@ def namespace_gui_commands(dist):
         if text != original:
             py.write_text(text, encoding="utf-8")
 
-    # Validate that every registered command now has our prefix.
     remaining = []
     for py in dist.rglob("*.py"):
         for cmd in command_pattern.findall(py.read_text(encoding="utf-8")):
@@ -526,7 +507,8 @@ def main():
     update_package(DIST / "package.xml", version)
     write_extended_readme(DIST, version)
 
-    # Extended documentation and diagnostic material
+    subprocess.run([sys.executable, str(ROOT / "scripts" / "patch_derived_geometry.py")], check=True)
+
     overlay = ROOT / "overlay"
     shutil.copytree(overlay / "docs", DIST / "docs" / "extended", dirs_exist_ok=True)
     shutil.copytree(overlay / "tests", DIST / "test" / "extended", dirs_exist_ok=True)
