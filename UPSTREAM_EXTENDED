@@ -1,0 +1,5 @@
+repository=https://github.com/execuc/LCInterlocking
+ref=1.5.1
+branch=master
+upstream_package_version=1.5.1
+upstream_package_date=2025-11-25

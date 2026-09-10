@@ -1,0 +1,41 @@
+# -*- coding: utf-8 -*-
+# Isole l'objet sélectionné pour vérifier si la "peau" vient d'un objet superposé.
+
+import FreeCAD as App
+import FreeCADGui as Gui
+
+doc = App.ActiveDocument
+if doc is None:
+    raise RuntimeError("Aucun document ouvert.")
+
+selection = Gui.Selection.getSelection()
+if len(selection) != 1:
+    raise RuntimeError("Sélectionne exactement la pièce générée qui semble contenir la peau.")
+
+target = selection[0]
+
+visible_before = []
+for obj in doc.Objects:
+    try:
+        if obj.ViewObject.Visibility:
+            visible_before.append(obj.Name)
+        obj.ViewObject.Visibility = (obj.Name == target.Name)
+    except Exception:
+        pass
+
+doc.recompute()
+Gui.activeDocument().activeView().fitAll()
+
+App.Console.PrintMessage("\n=== TEST SUPERPOSITION ===\n")
+App.Console.PrintMessage("Objet isolé : %s (%s)\n" % (target.Label, target.Name))
+App.Console.PrintMessage("Tous les autres objets ont été masqués.\n")
+App.Console.PrintMessage(
+    "Si la peau a disparu, elle appartenait à un autre objet visible sous la mortaise.\n"
+)
+App.Console.PrintMessage(
+    "Pour réafficher les objets auparavant visibles, exécute dans la console Python :\n"
+)
+App.Console.PrintMessage(
+    "for n in %r:\n    o=App.ActiveDocument.getObject(n)\n    if o: o.ViewObject.Visibility=True\n" % visible_before
+)
+App.Console.PrintMessage("=== FIN TEST SUPERPOSITION ===\n")
