@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.2.0 - 2026-09-10
+
+### Added
+
+- Derived geometry support for laser-cut parts produced by boolean and split workflows.
+- Generalized local-axis detection for planar faces with arbitrary edge counts.
+- Thickness detection from the final single-solid Shape instead of matching vertices on quadrilateral faces.
+- Intended support for:
+  - Part Cut, Fuse and Common;
+  - PartDesign Pocket and boolean-derived solids;
+  - BooleanFragments;
+  - Slice;
+  - individual Slice Apart / CompoundFilter results.
+- Explicit rejection of ambiguous multi-solid containers instead of selecting a solid implicitly.
+
+### Preserved
+
+- Configurable `CutThroughMargin` introduced by Extended.
+- Default through-cut margin: **0.10 mm on each side** of the contact plane.
+- Isolated Python namespace and GUI command IDs for coexistence with standard LCInterlocking.
+- Pinned upstream baseline and guarded build process.
+
+### Validation required before release tag
+
+Test in FreeCAD with at least:
+
+- one legacy rectangular-part MultiJoin regression case;
+- one Part Cut result whose selected face has more than four edges;
+- one Pocket/boolean-derived result;
+- one individual Slice Apart result;
+- verification that the 0.10 mm through-cut margin still removes residual bottom skin.
+
 ## 1.0.0 - 2026-08-27
 
 First validated release of **LCInterlocking Extended**.
