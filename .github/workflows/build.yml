@@ -1,6 +1,8 @@
 name: Build LCInterlocking Extended
 
 on:
+  pull_request:
+    branches: [ main ]
   push:
     branches: [ main ]
     tags: [ 'v*' ]
@@ -35,7 +37,8 @@ jobs:
       - name: Create ZIP
         run: |
           cd dist
-          zip -r ../LCInterlockingExtended-${GITHUB_REF_NAME}.zip LCInterlockingExtended
+          release_ref="${GITHUB_REF_NAME//\//-}"
+          zip -r "../LCInterlockingExtended-${release_ref}.zip" LCInterlockingExtended
 
       - name: Publish generated dist branch
         if: github.ref == 'refs/heads/main'
@@ -60,3 +63,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: LCInterlockingExtended-${{ github.ref_name }}.zip
+          prerelease: ${{ contains(github.ref_name, '-') }}

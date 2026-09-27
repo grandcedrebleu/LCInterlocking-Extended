@@ -5,7 +5,7 @@ configurable through-cut margin that prevents residual "skin" at the bottom of s
 
 ## Version
 
-- LCInterlocking Extended: **1.0.0**
+- LCInterlocking Extended: **1.3.0-alpha.7**
 - Upstream baseline: **LCInterlocking 1.5.1**
 - License: **LGPL-2.1-or-later**
 
@@ -53,8 +53,8 @@ This clones the pinned upstream revision, applies the guarded changes and create
 
 - `main`: maintenance source, tests, patcher and documentation.
 - `dist`: generated complete workbench tree for FreeCAD Addon Manager.
-- tag `v1.0.0`: source release.
-- release asset: `LCInterlockingExtended-1.0.0.zip`.
+- tag `v1.3.0-alpha.7`: source release.
+- release asset: `LCInterlockingExtended-v1.3.0-alpha.7.zip`.
 
 See `overlay/docs/MAINTENANCE.md`.
 
@@ -74,3 +74,25 @@ Based on LCInterlocking by execuc. Original project:
 https://github.com/execuc/LCInterlocking
 
 The original code is licensed under LGPL-2.1-or-later.
+
+## Oblique protruding fingers — prerelease
+
+The dedicated command supports independent overhangs, band count or target width,
+preview and editing, root Links, and successive joints on separate intact ends.
+Philippe validated Links and two-ended joints with FreeCAD 1.1.3 on Windows.
+See `overlay/workbench/NOTICE_DOIGTS_OBLIQUES.md` for the current scope.
+The feature remains a prerelease; native undo and save/reopen need further checks.
+
+### Geometry checks after building
+
+With CadQuery installed, run the adapter checks against the generated code:
+
+```bash
+python dist/LCInterlockingExtended/test/extended/check_geometry_cadquery.py
+python dist/LCInterlockingExtended/test/extended/check_parameters_cadquery.py
+python dist/LCInterlockingExtended/test/extended/check_end_skin.py
+```
+
+These checks exercise the geometry with OpenCascade; they do not replace native
+FreeCAD UI, undo, Link resolution or save/reopen testing. FreeCAD verification
+macros are included in the same directory.

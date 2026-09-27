@@ -1,0 +1,37 @@
+# Prototype LCInterlocking Extended 1.3.0-alpha.7 -- LGPL-2.1-or-later
+import math
+import FreeCAD as App
+import FreeCADGui as Gui
+import Part
+from lcie_panel.finger_oblique import FingerProxy, FingerViewProvider
+
+doc = App.newDocument('Demo_Doigts_Obliques')
+a = doc.addObject('Part::Feature','PanneauA')
+b = doc.addObject('Part::Feature','PanneauB')
+a.Shape = Part.makeBox(60,3,72,App.Vector(-60,-1.5,0))
+b.Shape = Part.makeBox(60,5,72,App.Vector(-60,-2.5,0))
+shape = b.Shape.copy()
+shape.rotate(App.Vector(),App.Vector(0,0,1),60)
+b.Shape = shape
+na = App.Vector(1,0,0)
+nb = App.Vector(0.5,math.sqrt(3)/2,0)
+ia = max(range(len(a.Shape.Faces)),key=lambda i:a.Shape.Faces[i].normalAt(0,0).dot(na))+1
+ib = max(range(len(b.Shape.Faces)),key=lambda i:b.Shape.Faces[i].normalAt(0,0).dot(nb))+1
+obj = doc.addObject('App::DocumentObjectGroupPython','DoigtsObliques')
+FingerProxy(obj)
+FingerViewProvider(obj.ViewObject)
+ra = doc.addObject('Part::Feature','ResultatA')
+rb = doc.addObject('Part::Feature','ResultatB')
+obj.addObject(ra);obj.addObject(rb)
+obj.ResultA,obj.ResultB = ra,rb
+obj.PanelA = (a,['Face%d'%ia]);obj.PanelB = (b,['Face%d'%ib])
+doc.recompute()
+if ra.Shape.isNull() or rb.Shape.isNull():
+    raise RuntimeError(obj.Status)
+a.ViewObject.Visibility=False;b.ViewObject.Visibility=False
+ra.ViewObject.ShapeColor=(0.9,0.48,0.16)
+rb.ViewObject.ShapeColor=(0.18,0.48,0.75)
+Gui.activeDocument().activeView().viewAxonometric()
+Gui.activeDocument().activeView().fitAll()
+Gui.Selection.clearSelection();Gui.Selection.addSelection(obj)
+App.Console.PrintMessage('Démo 60 degrés, 3/5 mm : '+obj.Status+'\n')
