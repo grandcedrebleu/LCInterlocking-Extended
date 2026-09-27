@@ -37,7 +37,8 @@ jobs:
       - name: Create ZIP
         run: |
           cd dist
-          zip -r ../LCInterlockingExtended-${GITHUB_REF_NAME}.zip LCInterlockingExtended
+          release_ref="${GITHUB_REF_NAME//\//-}"
+          zip -r "../LCInterlockingExtended-${release_ref}.zip" LCInterlockingExtended
 
       - name: Publish generated dist branch
         if: github.ref == 'refs/heads/main'
