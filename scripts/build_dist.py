@@ -211,7 +211,7 @@ def update_package(path, version):
     date_node = child("date")
     if date_node is None:
         date_node = ET.SubElement(root, f"{{{ns['p']}}}date")
-    date_node.text = "2026-09-10"
+    date_node.text = "2026-09-27"
 
     workbench = root.find("p:content/p:workbench", ns)
     if workbench is None:
@@ -254,7 +254,7 @@ def update_package(path, version):
 
     if child("version").text != version:
         raise RuntimeError("package.xml version update failed")
-    if child("date").text != "2026-09-10":
+    if child("date").text != "2026-09-27":
         raise RuntimeError("package.xml date update failed")
     wb_check = root.find("p:content/p:workbench/p:classname", ns)
     if wb_check is None or wb_check.text != "LCInterlockingExtendedWorkbench":
@@ -293,6 +293,14 @@ Default value:
 
 The purpose is to prevent the very thin residual face ("skin") that can remain at the
 bottom of a slot when the cutting solid ends exactly on the opposite face.
+
+## Oblique protruding fingers (1.3.0-alpha.7)
+
+Select two complete terminal edge faces, then use **Doigts croisés obliques**.
+Set the band count or target width, independent overhangs, fit clearance and
+alternation. Preview before accepting; double-click the result group to edit.
+Root-level Links and successive joints on separate intact ends are supported.
+See `NOTICE_DOIGTS_OBLIQUES.md` for scope and validation limitations.
 
 ## Installation
 
@@ -510,6 +518,23 @@ def main():
     subprocess.run([sys.executable, str(ROOT / "scripts" / "patch_derived_geometry.py")], check=True)
 
     overlay = ROOT / "overlay"
+    # Extended-owned modules are copied only after upstream namespacing.
+    shutil.copytree(overlay / "workbench", DIST, dirs_exist_ok=True)
+    initgui = DIST / "InitGui.py"
+    text = initgui.read_text(encoding="utf-8")
+    text = replace_once(text,
+        "from lcie_panel import multiplejoins, crosspiece, livinghinge",
+        "from lcie_panel import multiplejoins, crosspiece, livinghinge, finger_oblique",
+        "Oblique fingers import")
+    text = replace_once(text,
+        'all_command = ["LCIE_make_box_command", "LCIE_multiple_tabs_command", "LCIE_crosspiece"]',
+        'all_command = ["LCIE_make_box_command", "LCIE_multiple_tabs_command", "LCIE_crosspiece", "LCIE_oblique_fingers"]',
+        "Oblique fingers command")
+    text = replace_once(text,
+        '        self.appendToolbar("Tab", all_command)',
+        '        self.appendToolbar("Tab", all_command)\n        self.appendMenu("LCInterlocking Extended", all_command)',
+        "Oblique fingers menu")
+    initgui.write_text(text, encoding="utf-8")
     shutil.copytree(overlay / "docs", DIST / "docs" / "extended", dirs_exist_ok=True)
     shutil.copytree(overlay / "tests", DIST / "test" / "extended", dirs_exist_ok=True)
     shutil.copy2(ROOT / "CHANGELOG.md", DIST / "CHANGELOG_EXTENDED.md")

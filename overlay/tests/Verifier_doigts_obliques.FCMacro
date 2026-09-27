@@ -1,0 +1,21 @@
+# Geometry smoke tests in the actual FreeCAD runtime. LGPL-2.1-or-later.
+import math
+import FreeCAD as App
+import Part
+from lcie_lasercut.finger_oblique import build
+passed = 0
+for angle in (30,45,60,90,120,150):
+    for ta,tb in ((3,3),(5,5),(3,5)):
+        a = Part.makeBox(60,ta,72,App.Vector(-60,-ta/2,0))
+        b = Part.makeBox(60,tb,72,App.Vector(-60,-tb/2,0))
+        b.rotate(App.Vector(),App.Vector(0,0,1),angle)
+        na=App.Vector(1,0,0)
+        nb=App.Vector(math.cos(math.radians(angle)),math.sin(math.radians(angle)),0)
+        fa=max(a.Faces,key=lambda f:f.normalAt(0,0).dot(na))
+        fb=max(b.Faces,key=lambda f:f.normalAt(0,0).dot(nb))
+        shapes,acute,pitch=build(a,fa,b,fb,6,3,4,.05)
+        assert all(s.isValid() and len(s.Solids)==1 for s in shapes)
+        assert shapes[0].common(shapes[1]).Volume<1e-5
+        passed += 1
+        App.Console.PrintMessage('OK : %s degres, %s/%s mm\n'%(angle,ta,tb))
+App.Console.PrintMessage('Doigts obliques : %d/18 cas géométriques OK\n'%passed)

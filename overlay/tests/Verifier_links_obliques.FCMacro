@@ -1,0 +1,54 @@
+# Native FreeCAD integration test. Run after activating the Extended workbench.
+import FreeCAD as App
+import Part
+from lcie_panel.finger_oblique import FingerProxy, FingerViewProvider, panel_geometry
+
+doc=App.newDocument('Verification_Links_Obliques')
+source=doc.addObject('Part::Feature','Source')
+source.Shape=Part.makeBox(60,3,72,App.Vector(-60,-1.5,0))
+source.Placement.Base=App.Vector(0,0,7)
+doc.recompute()
+before=source.Shape.copy()
+for mode in (False,True):
+    links=[]
+    for i in range(2):
+        link=doc.addObject('App::Link','Link')
+        link.setLink(source)
+        link.LinkTransform=mode
+        link.LinkPlacement=App.Placement(App.Vector(100,50,0),App.Rotation(App.Vector(0,0,1),i*60))
+        links.append(link)
+    doc.recompute()
+    names=[]
+    for link in links:
+        # Choose the end at positive local X using the transformed face normal.
+        shape=Part.getShape(link)
+        direction=link.LinkPlacement.Rotation.multVec(App.Vector(1,0,0))
+        name='Face%d'%(1+max(range(len(shape.Faces)),key=lambda j:shape.Faces[j].normalAt(0,0).dot(direction)))
+        full,face=panel_geometry(link,name)
+        assert abs(face.Area-3*72)<1e-5
+        assert len(full.Solids)==1
+        names.append(name)
+    obj=doc.addObject('App::DocumentObjectGroupPython','Joint')
+    FingerProxy(obj);FingerViewProvider(obj.ViewObject)
+    a=doc.addObject('Part::Feature','ResultatA');b=doc.addObject('Part::Feature','ResultatB')
+    obj.addObject(a);obj.addObject(b);obj.ResultA=a;obj.ResultB=b
+    obj.PanelA=(links[0],[names[0]]);obj.PanelB=(links[1],[names[1]])
+    doc.recompute()
+    assert not a.Shape.isNull() and not b.Shape.isNull(),obj.Status
+    assert a.Shape.isValid() and b.Shape.isValid()
+    assert len(a.Shape.Solids)==len(b.Shape.Solids)==1
+    assert a.Shape.common(b.Shape).Volume<1e-5
+    assert (source.Shape.CenterOfMass-before.CenterOfMass).Length<1e-7
+    assert abs(source.Shape.Volume-before.Volume)<1e-7
+    assert obj.PanelA[0]==links[0] and obj.PanelB[0]==links[1]
+    # Moving both occurrences must move the recomputed joint by the same amount.
+    old=a.Shape.CenterOfMass
+    for link in links:
+        pl=link.LinkPlacement;pl.Base=pl.Base+App.Vector(20,0,0);link.LinkPlacement=pl
+    doc.recompute()
+    assert (a.Shape.CenterOfMass-old-App.Vector(20,0,0)).Length<1e-5
+    for link in links:link.ViewObject.Visibility=False
+    App.Console.PrintMessage('Links, LinkTransform=%s : PASS\n'%mode)
+source.ViewObject.Visibility=False
+Gui.activeDocument().activeView().viewAxonometric()
+Gui.activeDocument().activeView().fitAll()

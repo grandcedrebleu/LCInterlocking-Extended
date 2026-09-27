@@ -1,3 +1,17 @@
+## 1.3.0-alpha.7 - 2026-09-27
+
+- Add a dedicated oblique protruding finger joint command and parameter dialog.
+- Configure band count or target width, individual overhangs, clearance and inversion.
+- Resolve root-level Links and preserve FreeCAD mapped face references.
+- Support successive joints on different intact ends of a constant-thickness panel.
+- Fix Compound center access and thin terminal remnants up to 0.10 mm.
+- Keep existing MultiJoin and its through-cut margin behavior unchanged.
+
+Validation: Philippe confirmed Links and joints at both ends on FreeCAD 1.1.3
+(Windows). Eighteen geometry cases and the supplied two-ended assembly passed
+CadQuery/OpenCascade checks. Native save/reopen, undo and broader configurations
+remain to be checked; retain prerelease status.
+
 # Changelog
 
 ## 1.2.1 - 2026-09-10
